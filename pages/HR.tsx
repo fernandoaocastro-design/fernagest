@@ -1954,7 +1954,7 @@ const HR = () => {
               <input value={attendanceForm.notes} onChange={(e) => setAttendanceForm({ ...attendanceForm, notes: e.target.value })} placeholder={t('hr.notes')} className="border border-gray-200 rounded-lg p-2 text-sm md:col-span-3" />
               <div className="md:col-span-3 flex gap-2 justify-end">
                 <button onClick={generateAutoAttendance} disabled={!canManageHr} className="px-3 py-2 text-sm border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">{t('hr.generate_auto_attendance')}</button>
-                <button onClick={handleAttendanceSubmit} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2"><Save size={14} /> {t('common.save')}</button>
+                <button onClick={handleAttendanceSubmit} disabled={!canManageHr} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Save size={14} /> {t('common.save')}</button>
               </div>
             </div>
           )}
