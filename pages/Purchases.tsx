@@ -16,6 +16,7 @@ import { openPrintWindow } from '../utils/print';
 import { formatCurrency } from '../utils/currency';
 import { formatDate } from '../utils/language';
 import { useI18n } from '../utils/i18n';
+import { useAuthorization } from '../utils/useAuthorization';
 
 const formatKz = (value: number) => formatCurrency(value);
 
@@ -195,11 +196,19 @@ const PurchaseModal = ({ isOpen, onClose, onSave, suppliers, products }: any) =>
 
 const Purchases = () => {
   const { t } = useI18n();
+  const { can } = useAuthorization();
+  const canManagePurchases = can('purchases.manage');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders'>('dashboard');
   const [purchases, setPurchases] = useState<PurchaseOrder[]>(MOCK_PURCHASES);
   const [suppliers, setSuppliers] = useState<Supplier[]>(MOCK_SUPPLIERS);
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [isLoading, setIsLoading] = useState(true);
+
+  const ensurePurchasesManage = () => {
+    if (canManagePurchases) return true;
+    notifyWarning('Sem permissao para gerir compras.');
+    return false;
+  };
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -254,6 +263,7 @@ const Purchases = () => {
   };
 
   const handleSave = async (formData: any) => {
+    if (!ensurePurchasesManage()) return;
     if (!formData.supplierId || formData.items.length === 0) {
       notifyWarning(t('purchases.required_supplier_item'));
       return;
@@ -314,6 +324,7 @@ const Purchases = () => {
   };
 
   const printGeneralReport = () => {
+    if (!ensurePurchasesManage()) return;
     const logoUrl = FERNAGEST_LOGO;
     const date = formatDate(new Date());
 
@@ -368,6 +379,7 @@ const Purchases = () => {
   };
 
   const generatePDF = (purchase: PurchaseOrder) => {
+    if (!ensurePurchasesManage()) return;
     const logoUrl = FERNAGEST_LOGO;
 
     const html = `
@@ -441,12 +453,14 @@ const Purchases = () => {
   };
 
   const handleSendEmail = (purchase: PurchaseOrder) => {
+    if (!ensurePurchasesManage()) return;
     notifyInfo(
       t('purchases.email_simulation', { supplier: purchase.supplierName, id: purchase.id.slice(0, 8) })
     );
   };
 
   const handleReceiveOrder = async (purchase: PurchaseOrder) => {
+    if (!ensurePurchasesManage()) return;
     if (purchase.status !== 'PENDING') return;
 
     const confirmed = await confirmAction({
@@ -538,12 +552,20 @@ const Purchases = () => {
           <p className="text-gray-500 text-sm">{t('purchases.subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={printGeneralReport} className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2">
+          <button
+            onClick={printGeneralReport}
+            disabled={!canManagePurchases}
+            className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Printer size={16} /> {t('purchases.general_report')}
           </button>
           <button 
-            onClick={() => setIsFormOpen(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shadow-blue-200"
+            onClick={() => {
+              if (!ensurePurchasesManage()) return;
+              setIsFormOpen(true);
+            }}
+            disabled={!canManagePurchases}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus size={18} /> {t('purchases.new_purchase')}
           </button>
@@ -693,14 +715,29 @@ const Purchases = () => {
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <div className="flex justify-end gap-2">
                         {purchase.status === 'PENDING' && (
-                          <button onClick={() => handleReceiveOrder(purchase)} className="p-1.5 hover:bg-green-50 text-green-600 rounded" title={t('purchases.receive_order_action')}>
+                          <button
+                            onClick={() => handleReceiveOrder(purchase)}
+                            disabled={!canManagePurchases}
+                            className="p-1.5 hover:bg-green-50 text-green-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={t('purchases.receive_order_action')}
+                          >
                             <PackageCheck size={16} />
                           </button>
                         )}
-                        <button onClick={() => generatePDF(purchase)} className="p-1.5 hover:bg-blue-50 text-blue-600 rounded" title={t('purchases.view_download_pdf')}>
+                        <button
+                          onClick={() => generatePDF(purchase)}
+                          disabled={!canManagePurchases}
+                          className="p-1.5 hover:bg-blue-50 text-blue-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={t('purchases.view_download_pdf')}
+                        >
                           <FileText size={16} />
                         </button>
-                        <button onClick={() => handleSendEmail(purchase)} className="p-1.5 hover:bg-purple-50 text-purple-600 rounded" title={t('purchases.send_by_email')}>
+                        <button
+                          onClick={() => handleSendEmail(purchase)}
+                          disabled={!canManagePurchases}
+                          className="p-1.5 hover:bg-purple-50 text-purple-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={t('purchases.send_by_email')}
+                        >
                           <Mail size={16} />
                         </button>
                       </div>

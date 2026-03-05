@@ -10,10 +10,14 @@ import {
 import { MOCK_REPORTS, MOCK_FINANCIAL_DATA } from '../constants';
 import { ReportDef } from '../types';
 import { formatCurrency } from '../utils/currency';
+import { notifyWarning } from '../utils/feedback';
 import { useI18n } from '../utils/i18n';
+import { useAuthorization } from '../utils/useAuthorization';
 
 const Reports = () => {
   const { t } = useI18n();
+  const { can } = useAuthorization();
+  const canExportReports = can('reports.export');
   const [activeModule, setActiveModule] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReport, setSelectedReport] = useState<ReportDef | null>(null);
@@ -100,6 +104,11 @@ const Reports = () => {
   };
 
   const handleDownload = (format: 'PDF' | 'EXCEL') => {
+    if (!canExportReports) {
+      notifyWarning('Sem permissao para exportar relatorios.');
+      return;
+    }
+
     setIsGenerating(true);
     setTimeout(() => {
       setIsGenerating(false);
@@ -243,17 +252,17 @@ const Reports = () => {
            </button>
            <div className="flex gap-2">
              <button 
-             onClick={() => handleDownload('PDF')}
-              disabled={isGenerating}
-               className="px-4 py-2 text-sm font-medium text-white bg-red-600 dark:bg-red-700 rounded-lg hover:bg-red-700 dark:hover:bg-red-600 flex items-center gap-2 shadow-sm disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 focus-visible:ring-offset-2 dark:focus-visible:ring-red-400/60 dark:focus-visible:ring-offset-slate-900"
+              onClick={() => handleDownload('PDF')}
+               disabled={isGenerating || !canExportReports}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 dark:bg-red-700 rounded-lg hover:bg-red-700 dark:hover:bg-red-600 flex items-center gap-2 shadow-sm disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 focus-visible:ring-offset-2 dark:focus-visible:ring-red-400/60 dark:focus-visible:ring-offset-slate-900"
            >
              <FileText size={16} /> {t('reports.download_pdf')}
            </button>
-            <button 
-              onClick={() => handleDownload('EXCEL')}
-              disabled={isGenerating}
-               className="px-4 py-2 text-sm font-medium text-white bg-green-600 dark:bg-green-700 rounded-lg hover:bg-green-700 dark:hover:bg-green-600 flex items-center gap-2 shadow-sm disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/60 focus-visible:ring-offset-2 dark:focus-visible:ring-green-400/60 dark:focus-visible:ring-offset-slate-900"
-            >
+             <button 
+               onClick={() => handleDownload('EXCEL')}
+               disabled={isGenerating || !canExportReports}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 dark:bg-green-700 rounded-lg hover:bg-green-700 dark:hover:bg-green-600 flex items-center gap-2 shadow-sm disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/60 focus-visible:ring-offset-2 dark:focus-visible:ring-green-400/60 dark:focus-visible:ring-offset-slate-900"
+             >
               <FileSpreadsheet size={16} /> {t('reports.download_excel')}
             </button>
            </div>

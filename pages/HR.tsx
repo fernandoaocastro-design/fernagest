@@ -21,6 +21,7 @@ import { openPrintWindow } from '../utils/print';
 import { supabase } from '../supabaseClient';
 import { formatCurrency } from '../utils/currency';
 import { useI18n } from '../utils/i18n';
+import { useAuthorization } from '../utils/useAuthorization';
 
 type HrSection =
   | 'overview'
@@ -610,8 +611,24 @@ const mapLeaveRow = (row: any): LeaveRecord => ({
 
 const HR = () => {
   const { t } = useI18n();
+  const { can } = useAuthorization();
+  const canManageHr = can('hr.manage');
+  const canManagePayroll = can('hr.payroll.manage');
+  const canViewPayroll = can('hr.payroll.view');
   const initialData = loadHrData();
   const settings = loadSettings();
+
+  const ensureHrManage = () => {
+    if (canManageHr) return true;
+    notifyWarning('Sem permissao para gerir RH.');
+    return false;
+  };
+
+  const ensurePayrollManage = () => {
+    if (canManagePayroll) return true;
+    notifyWarning('Sem permissao para gerir folha de pagamento.');
+    return false;
+  };
 
   const [activeSection, setActiveSection] = useState<HrSection>('overview');
 
@@ -1022,6 +1039,7 @@ const HR = () => {
   };
 
   const handleEmployeeSubmit = async () => {
+    if (!ensureHrManage()) return;
     if (!employeeForm.fullName || !employeeForm.documentId || !employeeForm.admissionDate) {
       notifyWarning(t('hr.employee_required_fields'));
       return;
@@ -1087,6 +1105,7 @@ const HR = () => {
   };
 
   const handleEmployeeEdit = (employee: Employee) => {
+    if (!ensureHrManage()) return;
     setEditingEmployeeId(employee.id);
     showFormFor('employees');
     setEmployeeForm({
@@ -1107,6 +1126,7 @@ const HR = () => {
   };
 
   const handleEmployeeDelete = async (employee: Employee) => {
+    if (!ensureHrManage()) return;
     const confirmed = await confirmAction({
       title: t('hr.employee_delete_title'),
       message: t('hr.employee_delete_message', { name: employee.fullName }),
@@ -1129,6 +1149,7 @@ const HR = () => {
   };
 
   const handleAttendanceSubmit = async () => {
+    if (!ensureHrManage()) return;
     const employee = employeeById.get(attendanceForm.employeeId);
     if (!employee || !attendanceForm.date) {
       notifyWarning(t('hr.attendance_required'));
@@ -1188,6 +1209,7 @@ const HR = () => {
   };
 
   const generateAutoAttendance = async () => {
+    if (!ensureHrManage()) return;
     if (!attendanceForm.date) {
       notifyWarning(t('hr.attendance_auto_date_required'));
       return;
@@ -1232,6 +1254,7 @@ const HR = () => {
   };
 
   const handleVacationSubmit = async () => {
+    if (!ensureHrManage()) return;
     const employee = employeeById.get(vacationForm.employeeId);
     if (!employee || !vacationForm.startDate || !vacationForm.returnDate) {
       notifyWarning(t('hr.vacation_required'));
@@ -1312,6 +1335,7 @@ const HR = () => {
   };
 
   const handleEvaluationSubmit = async () => {
+    if (!ensureHrManage()) return;
     const employee = employeeById.get(evaluationForm.employeeId);
     if (!employee || !evaluationForm.evaluatorName || !evaluationForm.evaluationDate) {
       notifyWarning(t('hr.evaluation_required'));
@@ -1393,6 +1417,7 @@ const HR = () => {
   };
 
   const handleTrainingSubmit = async () => {
+    if (!ensureHrManage()) return;
     const employee = employeeById.get(trainingForm.employeeId);
     if (!employee || !trainingForm.title || !trainingForm.startDate || !trainingForm.endDate) {
       notifyWarning(t('hr.training_required'));
@@ -1447,6 +1472,7 @@ const HR = () => {
   };
 
   const handlePayrollSubmit = async () => {
+    if (!ensurePayrollManage()) return;
     const employee = employeeById.get(payrollForm.employeeId);
     if (!employee || !payrollForm.periodReference) {
       notifyWarning(t('hr.payroll_required'));
@@ -1553,6 +1579,7 @@ const HR = () => {
   };
 
   const handleLeaveSubmit = async () => {
+    if (!ensureHrManage()) return;
     const employee = employeeById.get(leaveForm.employeeId);
     if (!employee || !leaveForm.startDate || !leaveForm.returnDate) {
       notifyWarning(t('hr.leave_required'));
@@ -1597,6 +1624,10 @@ const HR = () => {
   };
 
   const exportPayroll = () => {
+    if (!canViewPayroll) {
+      notifyWarning('Sem permissao para visualizar ou imprimir folha.');
+      return;
+    }
     const html = `
       <html>
         <head>
@@ -1830,7 +1861,7 @@ const HR = () => {
 
               <div className="lg:col-span-3 flex gap-2 justify-end">
                 {editingEmployeeId && <button onClick={resetEmployeeForm} className="px-3 py-2 text-sm border border-gray-200 rounded-lg">{t('hr.cancel_edit')}</button>}
-                <button onClick={handleEmployeeSubmit} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2"><Save size={14} /> {editingEmployeeId ? t('hr.update') : t('common.save')}</button>
+                <button onClick={handleEmployeeSubmit} disabled={!canManageHr} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Save size={14} /> {editingEmployeeId ? t('hr.update') : t('common.save')}</button>
               </div>
             </div>
           )}
@@ -1922,7 +1953,7 @@ const HR = () => {
               <input value={attendanceForm.signature} onChange={(e) => setAttendanceForm({ ...attendanceForm, signature: e.target.value })} placeholder={t('hr.employee_signature')} className="border border-gray-200 rounded-lg p-2 text-sm" />
               <input value={attendanceForm.notes} onChange={(e) => setAttendanceForm({ ...attendanceForm, notes: e.target.value })} placeholder={t('hr.notes')} className="border border-gray-200 rounded-lg p-2 text-sm md:col-span-3" />
               <div className="md:col-span-3 flex gap-2 justify-end">
-                <button onClick={generateAutoAttendance} className="px-3 py-2 text-sm border border-gray-200 rounded-lg">{t('hr.generate_auto_attendance')}</button>
+                <button onClick={generateAutoAttendance} disabled={!canManageHr} className="px-3 py-2 text-sm border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">{t('hr.generate_auto_attendance')}</button>
                 <button onClick={handleAttendanceSubmit} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2"><Save size={14} /> {t('common.save')}</button>
               </div>
             </div>
@@ -1992,7 +2023,7 @@ const HR = () => {
               <input value={vacationForm.employeeSignature} onChange={(e) => setVacationForm({ ...vacationForm, employeeSignature: e.target.value })} placeholder="Assinatura Funcionario" className="border border-gray-200 rounded-lg p-2 text-sm" />
               <input value={vacationForm.supervisorSignature} onChange={(e) => setVacationForm({ ...vacationForm, supervisorSignature: e.target.value })} placeholder="Assinatura Supervisor/RH" className="border border-gray-200 rounded-lg p-2 text-sm" />
               <textarea value={vacationForm.notes} onChange={(e) => setVacationForm({ ...vacationForm, notes: e.target.value })} placeholder={t('hr.notes')} className="border border-gray-200 rounded-lg p-2 text-sm md:col-span-3 min-h-20" />
-              <div className="md:col-span-3 flex justify-end"><button onClick={handleVacationSubmit} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2"><Save size={14} /> {t('hr.save_vacations')}</button></div>
+              <div className="md:col-span-3 flex justify-end"><button onClick={handleVacationSubmit} disabled={!canManageHr} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Save size={14} /> {t('hr.save_vacations')}</button></div>
             </div>
           )}
 
@@ -2052,7 +2083,7 @@ const HR = () => {
               <textarea value={evaluationForm.strengths} onChange={(e) => setEvaluationForm({ ...evaluationForm, strengths: e.target.value })} placeholder="Pontos fortes" className="border border-gray-200 rounded-lg p-2 text-sm md:col-span-3 min-h-20" />
               <textarea value={evaluationForm.improvements} onChange={(e) => setEvaluationForm({ ...evaluationForm, improvements: e.target.value })} placeholder="Pontos a melhorar" className="border border-gray-200 rounded-lg p-2 text-sm md:col-span-3 min-h-20" />
               <textarea value={evaluationForm.evaluatorComments} onChange={(e) => setEvaluationForm({ ...evaluationForm, evaluatorComments: e.target.value })} placeholder="Comentarios do avaliador" className="border border-gray-200 rounded-lg p-2 text-sm md:col-span-3 min-h-20" />
-              <div className="md:col-span-3 flex justify-end"><button onClick={handleEvaluationSubmit} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2"><Save size={14} /> {t('hr.save_evaluation')}</button></div>
+              <div className="md:col-span-3 flex justify-end"><button onClick={handleEvaluationSubmit} disabled={!canManageHr} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Save size={14} /> {t('hr.save_evaluation')}</button></div>
             </div>
           )}
 
@@ -2091,7 +2122,7 @@ const HR = () => {
               <label className="text-sm text-gray-700 flex items-center gap-2"><input type="checkbox" checked={trainingForm.hasCertificate} onChange={(e) => setTrainingForm({ ...trainingForm, hasCertificate: e.target.checked })} /> Certificado</label>
               <select value={trainingForm.status} onChange={(e) => setTrainingForm({ ...trainingForm, status: e.target.value as TrainingStatus })} className="border border-gray-200 rounded-lg p-2 text-sm">{TRAINING_STATUS_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}</select>
               <textarea value={trainingForm.content} onChange={(e) => setTrainingForm({ ...trainingForm, content: e.target.value })} placeholder="Conteudo Programatico" className="border border-gray-200 rounded-lg p-2 text-sm md:col-span-3 min-h-20" />
-              <div className="md:col-span-3 flex justify-end"><button onClick={handleTrainingSubmit} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2"><Save size={14} /> {t('hr.save_training')}</button></div>
+              <div className="md:col-span-3 flex justify-end"><button onClick={handleTrainingSubmit} disabled={!canManageHr} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Save size={14} /> {t('hr.save_training')}</button></div>
             </div>
           )}
 
@@ -2107,7 +2138,7 @@ const HR = () => {
       {activeSection === 'payroll' && (
         <div className="space-y-4">
           <div className="flex justify-end gap-2">
-            <button onClick={exportPayroll} className="px-3 py-2 text-sm border border-gray-200 rounded-lg flex items-center gap-2"><Printer size={14} /> {t('hr.print')}</button>
+            <button onClick={exportPayroll} disabled={!canViewPayroll} className="px-3 py-2 text-sm border border-gray-200 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Printer size={14} /> {t('hr.print')}</button>
             <button
               onClick={() => toggleForm('payroll')}
               className="px-3 py-2 text-sm border border-gray-200 rounded-lg flex items-center gap-2"
@@ -2149,7 +2180,7 @@ const HR = () => {
               <input value={payrollForm.employeeSignature} onChange={(e) => setPayrollForm({ ...payrollForm, employeeSignature: e.target.value })} placeholder="Assinatura Funcionario" className="border border-gray-200 rounded-lg p-2 text-sm" />
               <input value={payrollForm.hrSignature} onChange={(e) => setPayrollForm({ ...payrollForm, hrSignature: e.target.value })} placeholder="Assinatura RH/Contabilidade" className="border border-gray-200 rounded-lg p-2 text-sm" />
 
-              <div className="md:col-span-3 flex justify-end"><button onClick={handlePayrollSubmit} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2"><Save size={14} /> {t('hr.save_payroll')}</button></div>
+              <div className="md:col-span-3 flex justify-end"><button onClick={handlePayrollSubmit} disabled={!canManagePayroll} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Save size={14} /> {t('hr.save_payroll')}</button></div>
             </div>
           )}
 
@@ -2181,7 +2212,7 @@ const HR = () => {
               <input type="date" value={leaveForm.returnDate} onChange={(e) => setLeaveForm({ ...leaveForm, returnDate: e.target.value })} className="border border-gray-200 rounded-lg p-2 text-sm" />
               <input type="file" onChange={(e) => setLeaveForm({ ...leaveForm, documentName: e.target.files?.[0]?.name || '' })} className="border border-gray-200 rounded-lg p-2 text-sm md:col-span-3" />
               <textarea value={leaveForm.notes} onChange={(e) => setLeaveForm({ ...leaveForm, notes: e.target.value })} placeholder={t('hr.notes')} className="border border-gray-200 rounded-lg p-2 text-sm md:col-span-3 min-h-20" />
-              <div className="md:col-span-3 flex justify-end"><button onClick={handleLeaveSubmit} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2"><Save size={14} /> {t('hr.save_leave')}</button></div>
+              <div className="md:col-span-3 flex justify-end"><button onClick={handleLeaveSubmit} disabled={!canManageHr} className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Save size={14} /> {t('hr.save_leave')}</button></div>
             </div>
           )}
 

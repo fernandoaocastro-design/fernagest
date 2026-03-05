@@ -16,6 +16,7 @@ import {
   readStoredTheme
 } from '../utils/theme';
 import { useI18n } from '../utils/i18n';
+import { useAuthorization } from '../utils/useAuthorization';
 
 // DefiniÃ§Ã£o das fases do Pipeline
 const PIPELINE_STAGES = [
@@ -116,6 +117,8 @@ const CustomerCard = ({
 
 const CRM = () => {
   const { t } = useI18n();
+  const { can } = useAuthorization();
+  const canManageCrm = can('crm.manage');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -136,6 +139,12 @@ const CRM = () => {
   };
   const chartTooltipTextStyle = {
     color: isDark ? '#e2e8f0' : '#111827'
+  };
+
+  const ensureCrmManage = () => {
+    if (canManageCrm) return true;
+    notifyWarning('Sem permissao para gerir clientes.');
+    return false;
   };
   
   const [formData, setFormData] = useState<CustomerFormData>({
@@ -195,6 +204,7 @@ const CRM = () => {
   };
 
   const handleSave = async () => {
+    if (!ensureCrmManage()) return;
     if (!formData.name) {
       notifyWarning(t('crm.required_name'));
       return;
@@ -236,6 +246,7 @@ const CRM = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!ensureCrmManage()) return;
     const shouldDelete = await confirmAction({
       title: t('crm.delete_title'),
       message: t('crm.delete_message'),
@@ -256,6 +267,7 @@ const CRM = () => {
   };
 
   const openForm = (customer: Customer | null = null, defaultStatus: string = 'lead') => {
+    if (!ensureCrmManage()) return;
     setEditingCustomer(customer);
     if (customer) {
       setFormData({
@@ -302,6 +314,7 @@ const CRM = () => {
 
   // Drag and Drop Handlers
   const handleDragStart = (e: React.DragEvent, customerId: string) => {
+    if (!canManageCrm) return;
     e.dataTransfer.setData('text/plain', customerId);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -312,6 +325,7 @@ const CRM = () => {
   };
 
   const handleDrop = async (e: React.DragEvent, newStatus: string) => {
+    if (!ensureCrmManage()) return;
     e.preventDefault();
     const customerId = e.dataTransfer.getData('text/plain');
     
@@ -362,7 +376,8 @@ const CRM = () => {
           </div>
           <button 
             onClick={() => openForm()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shadow-blue-200"
+            disabled={!canManageCrm}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus size={18} /> {t('crm.new_customer')}
           </button>
@@ -463,7 +478,12 @@ const CRM = () => {
                         <span className="font-bold text-sm text-gray-700">{getStageLabel(stage)}</span>
                         <div className="flex items-center gap-2">
                           <span className="bg-white/50 px-2 py-0.5 rounded-full text-xs font-bold">{stageCustomers.length}</span>
-                          <button onClick={() => openForm(null, stage.id)} className="p-1 hover:bg-gray-100 rounded-full text-gray-500 transition-colors" title={t('crm.add_in_stage')}>
+                          <button
+                            onClick={() => openForm(null, stage.id)}
+                            disabled={!canManageCrm}
+                            className="p-1 hover:bg-gray-100 rounded-full text-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={t('crm.add_in_stage')}
+                          >
                             <Plus size={14} />
                           </button>
                         </div>
@@ -474,7 +494,7 @@ const CRM = () => {
                             <CustomerCard
                               customer={customer}
                               compact={true}
-                              draggable={true}
+                              draggable={canManageCrm}
                               onDragStart={(e) => handleDragStart(e, customer.id)}
                               onEdit={openForm}
                               onDelete={handleDelete}
@@ -484,7 +504,8 @@ const CRM = () => {
                         ))}
                         <button 
                           onClick={() => openForm(null, stage.id)}
-                          className="w-full py-2 flex items-center justify-center gap-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-xs font-medium border-2 border-dashed border-transparent hover:border-blue-200"
+                          disabled={!canManageCrm}
+                          className="w-full py-2 flex items-center justify-center gap-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-xs font-medium border-2 border-dashed border-transparent hover:border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400"
                         >
                           <Plus size={14} /> {t('crm.add')}
                         </button>

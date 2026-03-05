@@ -13,6 +13,7 @@ import { openPrintWindow } from '../utils/print';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 import { formatDate } from '../utils/language';
 import { useI18n } from '../utils/i18n';
+import { useAuthorization } from '../utils/useAuthorization';
 
 const formatKz = (value: number) => formatCurrency(value);
 
@@ -21,6 +22,8 @@ const FERNAGEST_LOGO = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://ww
 
 const Inventory = () => {
   const { t } = useI18n();
+  const { can } = useAuthorization();
+  const canManageInventory = can('inventory.manage');
   const [products, setProducts] = useState<Product[]>([]);
   const [movements] = useState<StockMovement[]>(MOCK_STOCK_MOVEMENTS);
   const [activeTab, setActiveTab] = useState<'products' | 'movements'>('products');
@@ -30,6 +33,12 @@ const Inventory = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const currencySymbol = getCurrencySymbol();
+
+  const ensureInventoryManage = () => {
+    if (canManageInventory) return true;
+    notifyWarning('Sem permissao para gerir estoque.');
+    return false;
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -77,6 +86,7 @@ const Inventory = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!ensureInventoryManage()) return;
     const shouldDelete = await confirmAction({
       title: t('inventory.delete_title'),
       message: t('inventory.delete_message'),
@@ -97,6 +107,7 @@ const Inventory = () => {
   };
 
   const handleExport = () => {
+    if (!ensureInventoryManage()) return;
     const date = formatDate(new Date());
     // Substitua esta URL pela URL real do seu logotipo (pode ser do Supabase Storage)
     const logoUrl = FERNAGEST_LOGO;
@@ -189,6 +200,7 @@ const Inventory = () => {
     const [uploading, setUploading] = useState(false);
 
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (!ensureInventoryManage()) return;
       try {
         setUploading(true);
         if (!event.target.files || event.target.files.length === 0) {
@@ -223,6 +235,7 @@ const Inventory = () => {
     };
 
     const handleSave = async () => {
+      if (!ensureInventoryManage()) return;
       if (!formData.name || !formData.price) {
         notifyWarning(t('inventory.required_name_price'));
         return;
@@ -387,7 +400,11 @@ const Inventory = () => {
         <button onClick={() => setIsFormOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
           {t('common.cancel')}
         </button>
-        <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button
+          onClick={handleSave}
+          disabled={!canManageInventory}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Save size={16} /> {editingProduct ? t('inventory.update_product') : t('inventory.save_product')}
         </button>
       </div>
@@ -416,13 +433,22 @@ const Inventory = () => {
           <p className="text-gray-500 text-sm">{t('inventory.subtitle')}</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={handleExport} className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            disabled={!canManageInventory}
+            className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Download size={16} />
             {t('inventory.export_report')}
           </button>
           <button 
-            onClick={() => { setEditingProduct(null); setIsFormOpen(true); }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shadow-blue-200"
+            onClick={() => {
+              if (!ensureInventoryManage()) return;
+              setEditingProduct(null);
+              setIsFormOpen(true);
+            }}
+            disabled={!canManageInventory}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus size={18} />
             {t('inventory.new_product_button')}
@@ -595,10 +621,24 @@ const Inventory = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                           <button onClick={() => { setEditingProduct(product); setIsFormOpen(true); }} className="p-1.5 hover:bg-blue-50 text-blue-600 rounded" title={t('common.edit')}>
+                           <button
+                             onClick={() => {
+                               if (!ensureInventoryManage()) return;
+                               setEditingProduct(product);
+                               setIsFormOpen(true);
+                             }}
+                             disabled={!canManageInventory}
+                             className="p-1.5 hover:bg-blue-50 text-blue-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                             title={t('common.edit')}
+                           >
                              <Edit2 size={16} />
                            </button>
-                           <button onClick={() => handleDelete(product.id)} className="p-1.5 hover:bg-red-50 text-red-600 rounded" title={t('common.delete')}>
+                           <button
+                             onClick={() => handleDelete(product.id)}
+                             disabled={!canManageInventory}
+                             className="p-1.5 hover:bg-red-50 text-red-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                             title={t('common.delete')}
+                           >
                              <Trash2 size={16} />
                            </button>
                         </div>

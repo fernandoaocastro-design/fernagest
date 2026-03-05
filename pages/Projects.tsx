@@ -9,9 +9,11 @@ import {
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell 
 } from 'recharts';
+import { notifyWarning } from '../utils/feedback';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 import { formatDate } from '../utils/language';
 import { useI18n } from '../utils/i18n';
+import { useAuthorization } from '../utils/useAuthorization';
 
 // --- MOCK DATA E TIPOS (Para o cÃ³digo rodar sem dependÃªncias externas) ---
 
@@ -367,6 +369,8 @@ const SimpleGanttChart = ({ projects }: { projects: Project[] }) => {
 
 const Projects = () => {
   const { t } = useI18n();
+  const { can } = useAuthorization();
+  const canManageProjects = can('projects.manage');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
   const [isCreating, setIsCreating] = useState(false);
   const [projects, setProjects] = useState<Project[]>(Array.isArray(MOCK_PROJECTS) ? MOCK_PROJECTS : []);
@@ -375,6 +379,12 @@ const Projects = () => {
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [viewingProject, setViewingProject] = useState<Project | null>(null);
+
+  const ensureProjectsManage = () => {
+    if (canManageProjects) return true;
+    notifyWarning('Sem permissao para gerir projetos.');
+    return false;
+  };
 
   const getProjectStatusLabel = (status: Project['status']) => {
     const labels: Record<Project['status'], string> = {
@@ -420,6 +430,7 @@ const Projects = () => {
   });
 
   const handleSaveProject = (projectData: any) => {
+    if (!ensureProjectsManage()) return;
     if (projectData.id) {
       // Editar
       setProjects(projects.map(p => p.id === projectData.id ? { ...p, ...projectData } : p));
@@ -630,11 +641,16 @@ const Projects = () => {
                  <Printer size={16} /> {t('projects.reports')}
                </button>
                <button 
-                 onClick={() => { setEditingProject(null); setIsCreating(true); }}
-                 className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shadow-blue-200"
-               >
-                 <Plus size={18} /> {t('projects.new_project')}
-               </button>
+                 onClick={() => {
+                   if (!ensureProjectsManage()) return;
+                   setEditingProject(null);
+                   setIsCreating(true);
+                 }}
+                 disabled={!canManageProjects}
+                 className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus size={18} /> {t('projects.new_project')}
+                </button>
             </div>
           </div>
 
@@ -783,7 +799,16 @@ const Projects = () => {
                                 <button onClick={() => setViewingProject(project)} className="p-1.5 hover:bg-gray-100 text-gray-600 rounded" title={t('projects.view_details')}>
                                    <FolderOpen size={16} />
                                 </button>
-                                <button onClick={() => { setEditingProject(project); setIsCreating(true); }} className="p-1.5 hover:bg-blue-50 text-blue-600 rounded" title={t('common.edit')}>
+                                <button
+                                  onClick={() => {
+                                    if (!ensureProjectsManage()) return;
+                                    setEditingProject(project);
+                                    setIsCreating(true);
+                                  }}
+                                  disabled={!canManageProjects}
+                                  className="p-1.5 hover:bg-blue-50 text-blue-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={t('common.edit')}
+                                >
                                    <Edit2 size={16} />
                                 </button>
                              </div>

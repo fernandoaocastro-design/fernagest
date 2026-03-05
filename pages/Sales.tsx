@@ -14,6 +14,7 @@ import { openPrintWindow } from '../utils/print';
 import { formatCurrency } from '../utils/currency';
 import { formatDate } from '../utils/language';
 import { useI18n } from '../utils/i18n';
+import { useAuthorization } from '../utils/useAuthorization';
 
 const formatKz = (value: number) => formatCurrency(value);
 
@@ -23,6 +24,8 @@ const FERNAGEST_LOGO = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://ww
 const Sales = () => {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const { can } = useAuthorization();
+  const canManageSales = can('sales.manage');
   const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -41,6 +44,12 @@ const Sales = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
   const [quickCustomer, setQuickCustomer] = useState({ name: '', company: '' });
+
+  const ensureSalesManage = () => {
+    if (canManageSales) return true;
+    notifyWarning('Sem permissao para gerir vendas.');
+    return false;
+  };
   
   // Chart Data
   const chartData = [
@@ -98,6 +107,7 @@ const Sales = () => {
   };
 
   const addToCart = (product: Product) => {
+    if (!ensureSalesManage()) return;
     const existing = cart.find(item => item.productId === product.id);
     if (existing) {
       setCart(cart.map(item => 
@@ -117,10 +127,12 @@ const Sales = () => {
   };
 
   const removeFromCart = (productId: string) => {
+    if (!ensureSalesManage()) return;
     setCart(cart.filter(item => item.productId !== productId));
   };
 
   const updateQuantity = (productId: string, delta: number) => {
+    if (!ensureSalesManage()) return;
     setCart(cart.map(item => {
       if (item.productId === productId) {
         const newQty = Math.max(1, item.quantity + delta);
@@ -319,6 +331,7 @@ const Sales = () => {
   };
 
   const handleNewCustomer = async () => {
+    if (!ensureSalesManage()) return;
     const name = quickCustomer.name.trim();
     const company = quickCustomer.company.trim();
     if (!name) {
@@ -344,6 +357,7 @@ const Sales = () => {
   };
 
   const handleFinishSale = async () => {
+    if (!ensureSalesManage()) return;
     if (!selectedCustomer || cart.length === 0) {
       notifyWarning(t('sales.finish_requirements'));
       return;
@@ -485,7 +499,10 @@ const Sales = () => {
               </div>
               <button
                 type="button"
-                onClick={() => setIsQuickCustomerOpen((prev) => !prev)}
+                onClick={() => {
+                  if (!ensureSalesManage()) return;
+                  setIsQuickCustomerOpen((prev) => !prev);
+                }}
                 className="mt-2 text-xs text-blue-600 hover:text-blue-700 font-medium"
               >
                 {t('sales.new_customer_quick')}
@@ -606,7 +623,7 @@ const Sales = () => {
                   <Printer size={18} /> {t('sales.quote_button')}
                 </button>
                 <button 
-                  disabled={cart.length === 0 || !selectedCustomer || isSaving}
+                  disabled={cart.length === 0 || !selectedCustomer || isSaving || !canManageSales}
                   onClick={handleFinishSale}
                   className="flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-green-200 transition-all"
                 >
@@ -636,8 +653,12 @@ const Sales = () => {
           <p className="text-gray-500 text-sm">{t('sales.subtitle')}</p>
         </div>
         <button 
-          onClick={() => setIsCreating(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shadow-blue-200"
+          onClick={() => {
+            if (!ensureSalesManage()) return;
+            setIsCreating(true);
+          }}
+          disabled={!canManageSales}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={18} />
           {t('sales.new_sale')}
