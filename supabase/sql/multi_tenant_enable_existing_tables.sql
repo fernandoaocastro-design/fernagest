@@ -26,9 +26,16 @@ declare
   company_count integer;
   single_company_id uuid;
 begin
-  select count(*), min(id)
-  into company_count, single_company_id
+  select count(*)
+  into company_count
   from public.companies;
+
+  if company_count = 1 then
+    select id
+    into single_company_id
+    from public.companies
+    limit 1;
+  end if;
 
   foreach table_name in array target_tables loop
     if to_regclass('public.' || table_name) is null then
