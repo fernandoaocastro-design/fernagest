@@ -701,11 +701,29 @@ const Header: React.FC<HeaderProps> = ({
   const [companyName, setCompanyName] = useState(COMPANY_DEFAULT_NAME);
   const [companyLogo, setCompanyLogo] = useState('');
   const [isAvatarSaving, setIsAvatarSaving] = useState(false);
+  const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const hasSupabaseConfig = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
   const userInitials = useMemo(() => getInitials(userProfile.name), [userProfile.name]);
+  const avatarSyncState = isAvatarSaving
+    ? 'syncing'
+    : hasSupabaseConfig && hasSupabaseSession
+      ? 'synced'
+      : 'local';
+  const avatarSyncBadgeClass =
+    avatarSyncState === 'synced'
+      ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+      : avatarSyncState === 'syncing'
+        ? 'bg-blue-50 border border-blue-200 text-blue-700'
+        : 'bg-amber-50 border border-amber-200 text-amber-700';
+  const avatarSyncLabel =
+    avatarSyncState === 'synced'
+      ? 'Sincronizado com a base'
+      : avatarSyncState === 'syncing'
+        ? 'Sincronizando com a base...'
+        : 'Somente local';
 
   const unreadCount = useMemo(
     () =>
@@ -830,6 +848,7 @@ const Header: React.FC<HeaderProps> = ({
         saveUserProfile(nextProfile);
 
         if (!hasSupabaseConfig) {
+          setHasSupabaseSession(false);
           notifyInfo('Supabase Auth nao configurado. A foto foi salva apenas neste navegador.');
           notifySuccess('Foto de perfil atualizada.');
           return;
@@ -837,6 +856,7 @@ const Header: React.FC<HeaderProps> = ({
 
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
+          setHasSupabaseSession(false);
           notifyError(`Foto atualizada localmente, mas falhou ao validar sessao: ${sessionError.message}`);
           return;
         }
@@ -848,6 +868,7 @@ const Header: React.FC<HeaderProps> = ({
         }
 
         if (!activeSession) {
+          setHasSupabaseSession(false);
           notifyInfo('Foto atualizada localmente. Inicie sessao no Supabase para sincronizar na base.');
           return;
         }
@@ -873,6 +894,7 @@ const Header: React.FC<HeaderProps> = ({
               : result;
 
         saveUserProfile({ ...nextProfile, avatarUrl: avatarFromMetadata });
+        setHasSupabaseSession(true);
         notifySuccess('Foto de perfil atualizada e salva na base.');
       } catch (error: any) {
         notifyError(`Erro ao salvar foto na base: ${error?.message || 'erro desconhecido'}`);
@@ -1097,13 +1119,23 @@ const Header: React.FC<HeaderProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!hasSupabaseConfig) return;
+    if (!hasSupabaseConfig) {
+      setHasSupabaseSession(false);
+      return;
+    }
 
     let mounted = true;
 
     const loadSessionProfile = async () => {
       const { data, error } = await supabase.auth.getSession();
-      if (!mounted || error) return;
+      if (!mounted) return;
+
+      if (error) {
+        setHasSupabaseSession(false);
+        return;
+      }
+
+      setHasSupabaseSession(Boolean(data.session));
 
       const profile = mapSessionUserToProfile(data.session);
       if (profile) {
@@ -1117,6 +1149,7 @@ const Header: React.FC<HeaderProps> = ({
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
+      setHasSupabaseSession(Boolean(session));
       const profile = mapSessionUserToProfile(session);
       if (profile) {
         const current = readUserProfile();
@@ -1133,6 +1166,7 @@ const Header: React.FC<HeaderProps> = ({
         }
       } else {
         if (event === 'SIGNED_OUT') {
+          setHasSupabaseSession(false);
           setUserProfile(DEFAULT_USER_PROFILE);
           clearUserProfile();
         }
@@ -1331,6 +1365,11 @@ const Header: React.FC<HeaderProps> = ({
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">{userProfile.name}</p>
                     <p className="text-xs text-gray-500 truncate">{userProfile.email}</p>
+                    <span
+                      className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${avatarSyncBadgeClass}`}
+                    >
+                      {avatarSyncLabel}
+                    </span>
                   </div>
                 </div>
               </div>
