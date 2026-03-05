@@ -1,24 +1,43 @@
-<<<<<<< HEAD
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# FernaGest ERP
 
-# Run and deploy your AI Studio app
+Aplicação web de gestão empresarial (ERP) com módulos de:
+- Dashboard
+- Vendas
+- CRM
+- Compras
+- Estoque
+- Financeiro
+- Projetos
+- Relatórios
+- Configurações
 
-This contains everything you need to run your app locally.
+## Requisitos
+- Node.js 20+
+- npm 10+
 
-View your app in AI Studio: https://ai.studio/apps/drive/1BZQPfg0NX4FTG88zQs2J_cHxCZFvUOqz
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
+## Configuração
+1. Instalar dependências:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
-=======
-# fernagest
->>>>>>> 604d77811779856112101179a2a2e5ef9bb79556
+2. Criar arquivo `.env` (ou ajustar o existente) com:
+   - `VITE_SUPABASE_URL=...`
+   - `VITE_SUPABASE_ANON_KEY=...`
+3. Opcional: se houver funcionalidades de IA no ambiente, definir:
+   - `GEMINI_API_KEY=...`
+
+## Execução local
+- `npm run dev`
+
+## Build de produção
+- `npm run build`
+- `npm run preview`
+
+## Modulo RH (Supabase)
+- Script SQL: `supabase/sql/hr_module.sql`
+- Execute no SQL Editor do Supabase para criar as tabelas:
+  - `hr_employees`
+  - `hr_attendance`
+  - `hr_vacations`
+  - `hr_evaluations`
+  - `hr_trainings`
+  - `hr_payrolls`
+  - `hr_leaves`
