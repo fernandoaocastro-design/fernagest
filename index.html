@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
@@ -28,9 +29,148 @@
         }
       }
     </script>
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('fernagest:ui:theme:v1');
+          var normalizedTheme = theme === 'dark' ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', normalizedTheme);
+          if (normalizedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (error) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
     <style>
       body {
         background-color: #f3f4f6;
+      }
+
+      html.dark body {
+        background-color: #0b1220 !important;
+      }
+
+      html.dark .bg-white {
+        background-color: #111827 !important;
+      }
+
+      html.dark .bg-gray-50 {
+        background-color: #0f172a !important;
+      }
+
+      html.dark .bg-gray-50\/50 {
+        background-color: rgba(15, 23, 42, 0.75) !important;
+      }
+
+      html.dark .bg-gray-100 {
+        background-color: #1f2937 !important;
+      }
+
+      html.dark .bg-gray-200 {
+        background-color: #334155 !important;
+      }
+
+      html.dark .bg-gray-300 {
+        background-color: #475569 !important;
+      }
+
+      html.dark .border-gray-50,
+      html.dark .border-gray-100,
+      html.dark .border-gray-200,
+      html.dark .border-gray-300 {
+        border-color: #334155 !important;
+      }
+
+      html.dark .text-gray-900 {
+        color: #f9fafb !important;
+      }
+
+      html.dark .text-gray-800 {
+        color: #f3f4f6 !important;
+      }
+
+      html.dark .text-gray-700 {
+        color: #e5e7eb !important;
+      }
+
+      html.dark .text-gray-600 {
+        color: #d1d5db !important;
+      }
+
+      html.dark .text-gray-500 {
+        color: #9ca3af !important;
+      }
+
+      html.dark .text-gray-400 {
+        color: #94a3b8 !important;
+      }
+
+      html.dark .hover\:bg-gray-50:hover {
+        background-color: #1e293b !important;
+      }
+
+      html.dark .hover\:bg-gray-50\/50:hover {
+        background-color: rgba(30, 41, 59, 0.8) !important;
+      }
+
+      html.dark input,
+      html.dark select,
+      html.dark textarea {
+        background-color: #0f172a !important;
+        color: #f9fafb !important;
+        border-color: #334155 !important;
+      }
+
+      html.dark input::placeholder,
+      html.dark textarea::placeholder {
+        color: #94a3b8 !important;
+      }
+
+      html.dark .hr-contrast {
+        color: #dbe6f5;
+      }
+
+      html.dark .hr-contrast .bg-white {
+        background-color: #0b1426 !important;
+      }
+
+      html.dark .hr-contrast .bg-gray-50 {
+        background-color: #111d34 !important;
+      }
+
+      html.dark .hr-contrast .border-gray-100,
+      html.dark .hr-contrast .border-gray-200 {
+        border-color: #334155 !important;
+      }
+
+      html.dark .hr-contrast .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+        border-color: #334155 !important;
+      }
+
+      html.dark .hr-contrast .text-gray-900 {
+        color: #f8fafc !important;
+      }
+
+      html.dark .hr-contrast .text-gray-700 {
+        color: #dbe6f5 !important;
+      }
+
+      html.dark .hr-contrast .text-gray-600 {
+        color: #c6d3e6 !important;
+      }
+
+      html.dark .hr-contrast .text-gray-500 {
+        color: #a8b8cf !important;
+      }
+
+      html.dark .hr-contrast .hover\:bg-gray-50:hover {
+        background-color: #16233a !important;
+      }
+
+      html.dark .hr-contrast thead.bg-gray-50 {
+        background-color: #132138 !important;
       }
       /* Custom scrollbar for better aesthetics in tables/sidebars */
       ::-webkit-scrollbar {
@@ -48,19 +188,6 @@
         background: #94a3b8;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
-    "recharts": "https://esm.sh/recharts@^3.7.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>
