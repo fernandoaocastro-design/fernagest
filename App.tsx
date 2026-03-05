@@ -1,16 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Inventory from './pages/Inventory';
-import Finance from './pages/Finance';
-import Sales from './pages/Sales';
-import CRM from './pages/CRM';
-import Purchases from './pages/Purchases';
-import Projects from './pages/Projects';
-import Reports from './pages/Reports';
-import Settings from './pages/Settings';
-import HR from './pages/HR';
 import RouteGuard from './components/RouteGuard';
 import {
   APP_THEME_STORAGE_KEY,
@@ -25,6 +15,23 @@ import {
   normalizeLanguage,
   readStoredLanguage
 } from './utils/language';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const Finance = lazy(() => import('./pages/Finance'));
+const Sales = lazy(() => import('./pages/Sales'));
+const CRM = lazy(() => import('./pages/CRM'));
+const Purchases = lazy(() => import('./pages/Purchases'));
+const Projects = lazy(() => import('./pages/Projects'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Settings = lazy(() => import('./pages/Settings'));
+const HR = lazy(() => import('./pages/HR'));
+
+const RouteLoading = () => (
+  <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
+    Carregando modulo...
+  </div>
+);
 
 const App = () => {
   useEffect(() => {
@@ -64,90 +71,92 @@ const App = () => {
   return (
     <Router>
       <Layout>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <RouteGuard required="dashboard.view">
-                <Dashboard />
-              </RouteGuard>
-            }
-          />
-          <Route
-            path="/inventory"
-            element={
-              <RouteGuard required="inventory.view">
-                <Inventory />
-              </RouteGuard>
-            }
-          />
-          <Route
-            path="/finance"
-            element={
-              <RouteGuard required="finance.view">
-                <Finance />
-              </RouteGuard>
-            }
-          />
-          <Route
-            path="/sales"
-            element={
-              <RouteGuard required="sales.view">
-                <Sales />
-              </RouteGuard>
-            }
-          />
-          <Route
-            path="/crm"
-            element={
-              <RouteGuard required="crm.view">
-                <CRM />
-              </RouteGuard>
-            }
-          />
-          <Route
-            path="/purchases"
-            element={
-              <RouteGuard required="purchases.view">
-                <Purchases />
-              </RouteGuard>
-            }
-          />
-          <Route
-            path="/projects"
-            element={
-              <RouteGuard required="projects.view">
-                <Projects />
-              </RouteGuard>
-            }
-          />
-          <Route
-            path="/hr"
-            element={
-              <RouteGuard required="hr.view">
-                <HR />
-              </RouteGuard>
-            }
-          />
-          <Route
-            path="/reports"
-            element={
-              <RouteGuard required="reports.view">
-                <Reports />
-              </RouteGuard>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <RouteGuard required="settings.view">
-                <Settings />
-              </RouteGuard>
-            }
-          />
-          
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<RouteLoading />}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <RouteGuard required="dashboard.view">
+                  <Dashboard />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/inventory"
+              element={
+                <RouteGuard required="inventory.view">
+                  <Inventory />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/finance"
+              element={
+                <RouteGuard required="finance.view">
+                  <Finance />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/sales"
+              element={
+                <RouteGuard required="sales.view">
+                  <Sales />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/crm"
+              element={
+                <RouteGuard required="crm.view">
+                  <CRM />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/purchases"
+              element={
+                <RouteGuard required="purchases.view">
+                  <Purchases />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/projects"
+              element={
+                <RouteGuard required="projects.view">
+                  <Projects />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/hr"
+              element={
+                <RouteGuard required="hr.view">
+                  <HR />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <RouteGuard required="reports.view">
+                  <Reports />
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <RouteGuard required="settings.view">
+                  <Settings />
+                </RouteGuard>
+              }
+            />
+            
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </Layout>
     </Router>
   );
