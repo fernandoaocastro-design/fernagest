@@ -835,6 +835,23 @@ const Header: React.FC<HeaderProps> = ({
           return;
         }
 
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          notifyError(`Foto atualizada localmente, mas falhou ao validar sessao: ${sessionError.message}`);
+          return;
+        }
+
+        let activeSession = sessionData.session;
+        if (!activeSession) {
+          const { data: refreshedData } = await supabase.auth.refreshSession();
+          activeSession = refreshedData.session;
+        }
+
+        if (!activeSession) {
+          notifyInfo('Foto atualizada localmente. Inicie sessao no Supabase para sincronizar na base.');
+          return;
+        }
+
         const { data, error } = await supabase.auth.updateUser({
           data: {
             avatar_url: result,
@@ -1098,16 +1115,27 @@ const Header: React.FC<HeaderProps> = ({
 
     loadSessionProfile();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
       const profile = mapSessionUserToProfile(session);
       if (profile) {
         const current = readUserProfile();
         const merged = { ...current, ...profile, avatarUrl: profile.avatarUrl || current.avatarUrl };
         saveUserProfile(merged);
+
+        if (!profile.avatarUrl && current.avatarUrl) {
+          void supabase.auth.updateUser({
+            data: {
+              avatar_url: current.avatarUrl,
+              avatar: current.avatarUrl
+            }
+          });
+        }
       } else {
-        setUserProfile(DEFAULT_USER_PROFILE);
-        clearUserProfile();
+        if (event === 'SIGNED_OUT') {
+          setUserProfile(DEFAULT_USER_PROFILE);
+          clearUserProfile();
+        }
       }
     });
 
