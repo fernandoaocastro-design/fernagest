@@ -45,6 +45,8 @@ import {
   saveLanguage
 } from '../utils/language';
 import { useI18n } from '../utils/i18n';
+import { AppPermission } from '../utils/permissions';
+import { useAuthorization } from '../utils/useAuthorization';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   NOTIFICATION_PREFERENCES_STORAGE_KEY,
@@ -56,6 +58,14 @@ import {
 
 const HR_SETTINGS_KEY = 'fernagest:hr:settings:v1';
 const SETTINGS_TABS = ['general', 'users', 'system', 'notifications', 'security', 'integrations'] as const;
+const TAB_REQUIRED_PERMISSION: Record<(typeof SETTINGS_TABS)[number], AppPermission> = {
+  general: 'settings.view',
+  users: 'settings.manage_users',
+  system: 'settings.manage_system',
+  notifications: 'settings.view',
+  security: 'settings.manage_system',
+  integrations: 'settings.manage_system'
+};
 
 const parseTabFromSearch = (search: string) => {
   const tab = new URLSearchParams(search).get('tab');
@@ -68,15 +78,28 @@ const FERNAGEST_LOGO = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://ww
 
 const Settings = () => {
   const { t } = useI18n();
+  const { can } = useAuthorization();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(() => parseTabFromSearch(location.search));
   const [theme, setTheme] = useState<AppTheme>(readStoredTheme());
   const [logo, setLogo] = useState(FERNAGEST_LOGO);
   const [companyName, setCompanyName] = useState(COMPANY_DEFAULT_NAME);
   const [companySlogan, setCompanySlogan] = useState(COMPANY_DEFAULT_SLOGAN);
+  const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
   const [vacationSubsidyPercent, setVacationSubsidyPercent] = useState(33.33);
   const [currency, setCurrency] = useState<AppCurrency>(readStoredCurrency());
   const [language, setLanguage] = useState<AppLanguage>(readStoredLanguage());
+  const hasSupabaseConfig = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+  const avatarSyncLabel =
+    hasSupabaseConfig && hasSupabaseSession
+      ? 'Sincronizado com a base'
+      : 'Somente local';
+  const avatarSyncBadgeClass =
+    hasSupabaseConfig && hasSupabaseSession
+      ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+      : 'bg-amber-50 border border-amber-200 text-amber-700';
+  const canOpenTab = (tabId: (typeof SETTINGS_TABS)[number]) =>
+    can(TAB_REQUIRED_PERMISSION[tabId]);
   
   // State for Users
   const [users, setUsers] = useState(MOCK_USERS);
@@ -256,8 +279,51 @@ const Settings = () => {
   }, []);
 
   useEffect(() => {
-    setActiveTab(parseTabFromSearch(location.search));
-  }, [location.search]);
+    const tabFromSearch = parseTabFromSearch(location.search) as (typeof SETTINGS_TABS)[number];
+    if (canOpenTab(tabFromSearch)) {
+      setActiveTab(tabFromSearch);
+      return;
+    }
+
+    const firstAllowed = SETTINGS_TABS.find((tabId) => canOpenTab(tabId)) || 'general';
+    setActiveTab(firstAllowed);
+  }, [location.search, can]);
+
+  useEffect(() => {
+    if (canOpenTab(activeTab)) return;
+    const firstAllowed = SETTINGS_TABS.find((tabId) => canOpenTab(tabId)) || 'general';
+    if (firstAllowed !== activeTab) setActiveTab(firstAllowed);
+  }, [activeTab, can]);
+
+  useEffect(() => {
+    if (!hasSupabaseConfig) {
+      setHasSupabaseSession(false);
+      return;
+    }
+
+    let mounted = true;
+
+    const syncSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (!mounted || error) {
+        setHasSupabaseSession(false);
+        return;
+      }
+      setHasSupabaseSession(Boolean(data.session));
+    };
+
+    syncSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      setHasSupabaseSession(Boolean(session));
+    });
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, [hasSupabaseConfig]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -326,6 +392,10 @@ const Settings = () => {
   };
   
   const handleDeleteUser = async (id: string) => {
+      if (!can('settings.manage_users')) {
+        notifyInfo('Sem permissao para gerenciar usuarios.');
+        return;
+      }
       const confirmed = await confirmAction({
         title: t('settings.delete_user_title'),
         message: t('settings.delete_user_message'),
@@ -338,7 +408,13 @@ const Settings = () => {
       notifySuccess(t('settings.user_removed_success'));
   };
   
-  const handleEditUser = (user: any) => notifyInfo(t('settings.edit_user_simulation', { name: user.name }));
+  const handleEditUser = (user: any) => {
+    if (!can('settings.manage_users')) {
+      notifyInfo('Sem permissao para gerenciar usuarios.');
+      return;
+    }
+    notifyInfo(t('settings.edit_user_simulation', { name: user.name }));
+  };
   
   const toggleModule = (id: string) => setModules(modules.map(m => m.id === id ? {...m, active: !m.active} : m));
   
@@ -417,6 +493,7 @@ const Settings = () => {
     { id: 'security', label: t('settings.tab_security'), icon: Shield },
     { id: 'integrations', label: t('settings.tab_integrations'), icon: Globe },
   ];
+  const visibleTabs = tabs.filter((tab) => canOpenTab(tab.id as (typeof SETTINGS_TABS)[number]));
 
   // --- Content Sections ---
 
@@ -424,6 +501,11 @@ const Settings = () => {
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
       <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
         <h3 className="text-lg font-bold text-gray-800 mb-6 border-b pb-2">{t('settings.company_identity')}</h3>
+        <div className="mb-4">
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${avatarSyncBadgeClass}`}>
+            Foto de perfil: {avatarSyncLabel}
+          </span>
+        </div>
         
         <div className="flex flex-col md:flex-row gap-8">
            {/* Logo Upload */}
@@ -792,7 +874,7 @@ const Settings = () => {
          {/* Sidebar Navigation */}
          <div className="lg:w-64 bg-white rounded-xl shadow-sm border border-gray-100 h-fit flex-shrink-0">
             <nav className="p-2 space-y-1">
-               {tabs.map(tab => (
+               {visibleTabs.map(tab => (
                   <button
                      key={tab.id}
                      onClick={() => setActiveTab(tab.id)}
@@ -807,11 +889,11 @@ const Settings = () => {
 
          {/* Content Area */}
          <div className="flex-1 overflow-y-auto pr-1">
-            {activeTab === 'general' && GeneralSettings()}
-            {activeTab === 'users' && UserSettings()}
-            {activeTab === 'system' && SystemSettings()}
-            {activeTab === 'security' && SecuritySettings()}
-            {activeTab === 'notifications' && (
+            {activeTab === 'general' && canOpenTab('general') && GeneralSettings()}
+            {activeTab === 'users' && canOpenTab('users') && UserSettings()}
+            {activeTab === 'system' && canOpenTab('system') && SystemSettings()}
+            {activeTab === 'security' && canOpenTab('security') && SecuritySettings()}
+            {activeTab === 'notifications' && canOpenTab('notifications') && (
                <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm animate-in fade-in slide-in-from-right-4 duration-300">
                   <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
                      <Bell size={18} className="text-blue-600"/> {t('settings.notifications_preferences')}
@@ -859,7 +941,7 @@ const Settings = () => {
                   </div>
                </div>
             )}
-            {activeTab === 'integrations' && (
+            {activeTab === 'integrations' && canOpenTab('integrations') && (
                <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                   {integrations.map(integration => (
                      <div key={integration.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
