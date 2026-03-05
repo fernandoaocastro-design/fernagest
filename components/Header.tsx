@@ -31,10 +31,13 @@ import { USER_PROFILE_UPDATED_EVENT } from '../utils/permissions';
 import { useAuthorization } from '../utils/useAuthorization';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
+  NotificationEmailDeliveryState,
   NOTIFICATION_PREFERENCES_STORAGE_KEY,
   NOTIFICATION_PREFERENCES_UPDATED_EVENT,
   NotificationPreferences,
-  readStoredNotificationPreferences
+  readStoredNotificationEmailDeliveryState,
+  readStoredNotificationPreferences,
+  saveNotificationEmailDeliveryState
 } from '../utils/notificationPreferences';
 
 interface HeaderProps {
@@ -111,6 +114,7 @@ const HR_STORAGE_KEY = 'fernagest:hr:data:v2';
 const NOTIFICATIONS_SEEN_KEY = 'fernagest:notifications:seen:v1';
 const USER_PROFILE_KEY = 'fernagest:user:profile:v1';
 const ALERTS_REFRESH_INTERVAL_MS = 60 * 1000;
+const WEEKLY_DIGEST_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const DEFAULT_USER_PROFILE: UserProfile = {
   name: 'Admin',
@@ -878,14 +882,93 @@ const Header: React.FC<HeaderProps> = ({
 
   useEffect(() => {
     loadAlerts();
-    if (!notificationPreferences.pushNotifications) return;
+    if (!notificationPreferences.pushNotifications && !notificationPreferences.emailAlerts) return;
 
     const timer = setInterval(() => {
       loadAlerts();
     }, ALERTS_REFRESH_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, [loadAlerts, notificationPreferences.pushNotifications]);
+  }, [loadAlerts, notificationPreferences.pushNotifications, notificationPreferences.emailAlerts]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const activeAlertIds = alerts.map((alert) => alert.id);
+    const activeAlertSet = new Set(activeAlertIds);
+    const currentState = readStoredNotificationEmailDeliveryState();
+    const nextState: NotificationEmailDeliveryState = {
+      immediateSentAlertIds: currentState.immediateSentAlertIds.filter((id) => activeAlertSet.has(id)),
+      weeklyDigestPendingAlertIds: currentState.weeklyDigestPendingAlertIds.filter((id) => activeAlertSet.has(id)),
+      weeklyDigestLastSentAt: currentState.weeklyDigestLastSentAt
+    };
+
+    if (!notificationPreferences.emailAlerts) {
+      saveNotificationEmailDeliveryState(nextState);
+      return;
+    }
+
+    if (notificationPreferences.weeklyDigest) {
+      const deliveredSet = new Set(nextState.immediateSentAlertIds);
+      const pendingSet = new Set(nextState.weeklyDigestPendingAlertIds);
+      activeAlertIds.forEach((id) => {
+        if (!deliveredSet.has(id)) pendingSet.add(id);
+      });
+      nextState.weeklyDigestPendingAlertIds = Array.from(pendingSet);
+
+      const now = new Date();
+      const nowIso = now.toISOString();
+      if (!nextState.weeklyDigestLastSentAt) {
+        nextState.weeklyDigestLastSentAt = nowIso;
+        saveNotificationEmailDeliveryState(nextState);
+        return;
+      }
+
+      const lastSentMs = new Date(nextState.weeklyDigestLastSentAt).getTime();
+      const dueForDigest =
+        Number.isFinite(lastSentMs) &&
+        now.getTime() - lastSentMs >= WEEKLY_DIGEST_INTERVAL_MS;
+
+      if (dueForDigest && nextState.weeklyDigestPendingAlertIds.length > 0) {
+        notifyInfo(
+          `Simulacao: resumo semanal enviado para ${userProfile.email} com ${nextState.weeklyDigestPendingAlertIds.length} alerta(s).`
+        );
+        nextState.weeklyDigestPendingAlertIds.forEach((id) => deliveredSet.add(id));
+        nextState.immediateSentAlertIds = Array.from(deliveredSet);
+        nextState.weeklyDigestPendingAlertIds = [];
+        nextState.weeklyDigestLastSentAt = nowIso;
+      }
+
+      saveNotificationEmailDeliveryState(nextState);
+      return;
+    }
+
+    const deliveredSet = new Set(nextState.immediateSentAlertIds);
+    const batchIds = new Set<string>();
+    nextState.weeklyDigestPendingAlertIds.forEach((id) => {
+      if (!deliveredSet.has(id)) batchIds.add(id);
+    });
+    activeAlertIds.forEach((id) => {
+      if (!deliveredSet.has(id)) batchIds.add(id);
+    });
+
+    if (batchIds.size > 0) {
+      notifyInfo(
+        `Simulacao: e-mail de alertas enviado para ${userProfile.email} (${batchIds.size} alerta(s)).`
+      );
+      batchIds.forEach((id) => deliveredSet.add(id));
+      nextState.immediateSentAlertIds = Array.from(deliveredSet);
+    }
+
+    nextState.weeklyDigestPendingAlertIds = [];
+    saveNotificationEmailDeliveryState(nextState);
+  }, [
+    alerts,
+    notificationPreferences.emailAlerts,
+    notificationPreferences.weeklyDigest,
+    t,
+    userProfile.email
+  ]);
 
   useEffect(() => {
     if (!isNotificationsOpen) return;
