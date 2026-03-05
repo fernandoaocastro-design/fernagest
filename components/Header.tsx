@@ -260,7 +260,11 @@ const readUserProfile = (): UserProfile => {
 
 const writeUserProfile = (profile: UserProfile) => {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
+  try {
+    window.localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
+  } catch {
+    // ignore storage errors (e.g. quota exceeded) and keep in-memory state
+  }
   window.dispatchEvent(
     new CustomEvent<UserProfile>(USER_PROFILE_UPDATED_EVENT, {
       detail: profile
@@ -270,7 +274,11 @@ const writeUserProfile = (profile: UserProfile) => {
 
 const clearUserProfile = () => {
   if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(USER_PROFILE_KEY);
+  try {
+    window.localStorage.removeItem(USER_PROFILE_KEY);
+  } catch {
+    // ignore storage errors
+  }
   window.dispatchEvent(
     new CustomEvent<null>(USER_PROFILE_UPDATED_EVENT, {
       detail: null
@@ -692,6 +700,7 @@ const Header: React.FC<HeaderProps> = ({
   );
   const [companyName, setCompanyName] = useState(COMPANY_DEFAULT_NAME);
   const [companyLogo, setCompanyLogo] = useState('');
+  const [isAvatarSaving, setIsAvatarSaving] = useState(false);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -805,18 +814,60 @@ const Header: React.FC<HeaderProps> = ({
       return;
     }
 
+    if (file.size > 2 * 1024 * 1024) {
+      notifyInfo('A imagem deve ter no maximo 2MB.');
+      event.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const result = typeof reader.result === 'string' ? reader.result : '';
       if (!result) return;
-      const nextProfile: UserProfile = { ...userProfile, avatarUrl: result };
-      saveUserProfile(nextProfile);
-      notifySuccess('Foto de perfil atualizada.');
-      event.target.value = '';
+      setIsAvatarSaving(true);
+      try {
+        const nextProfile: UserProfile = { ...userProfile, avatarUrl: result };
+        saveUserProfile(nextProfile);
+
+        if (!hasSupabaseConfig) {
+          notifyInfo('Supabase Auth nao configurado. A foto foi salva apenas neste navegador.');
+          notifySuccess('Foto de perfil atualizada.');
+          return;
+        }
+
+        const { data, error } = await supabase.auth.updateUser({
+          data: {
+            avatar_url: result,
+            avatar: result
+          }
+        });
+
+        if (error) {
+          notifyError(`Foto atualizada localmente, mas falhou ao salvar na base: ${error.message}`);
+          return;
+        }
+
+        const metadata = data.user?.user_metadata ?? {};
+        const avatarFromMetadata =
+          typeof metadata.avatar_url === 'string' && metadata.avatar_url.trim()
+            ? metadata.avatar_url.trim()
+            : typeof metadata.avatar === 'string' && metadata.avatar.trim()
+              ? metadata.avatar.trim()
+              : result;
+
+        saveUserProfile({ ...nextProfile, avatarUrl: avatarFromMetadata });
+        notifySuccess('Foto de perfil atualizada e salva na base.');
+      } catch (error: any) {
+        notifyError(`Erro ao salvar foto na base: ${error?.message || 'erro desconhecido'}`);
+      } finally {
+        event.target.value = '';
+        setIsAvatarSaving(false);
+      }
     };
     reader.onerror = () => {
       notifyError('Nao foi possivel carregar a foto selecionada.');
       event.target.value = '';
+      setIsAvatarSaving(false);
     };
     reader.readAsDataURL(file);
   };
@@ -1259,10 +1310,11 @@ const Header: React.FC<HeaderProps> = ({
               <div className="p-2">
                 <button
                   onClick={triggerAvatarUpload}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  disabled={isAvatarSaving}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   <ImagePlus size={16} />
-                  Alterar foto
+                  {isAvatarSaving ? 'Salvando foto...' : 'Alterar foto'}
                 </button>
                 {can('settings.manage_users') && (
                   <button
