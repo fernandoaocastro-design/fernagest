@@ -139,7 +139,15 @@ declare
 begin
   v_actor_user_id := coalesce(auth.uid(), p_admin_user_id);
   if v_actor_user_id is null then
-    raise exception 'bootstrap_company_admin requires an authenticated user or p_admin_user_id';
+    select u.id
+    into v_actor_user_id
+    from auth.users u
+    order by u.created_at asc
+    limit 1;
+  end if;
+
+  if v_actor_user_id is null then
+    raise exception 'bootstrap_company_admin could not resolve an admin user. Create at least one user in Authentication > Users.';
   end if;
 
   v_legal_name := trim(coalesce(p_legal_name, ''));
