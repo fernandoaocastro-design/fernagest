@@ -110,6 +110,7 @@ interface HrStorageData {
 const HR_STORAGE_KEY = 'fernagest:hr:data:v2';
 const NOTIFICATIONS_SEEN_KEY = 'fernagest:notifications:seen:v1';
 const USER_PROFILE_KEY = 'fernagest:user:profile:v1';
+const ALERTS_REFRESH_INTERVAL_MS = 60 * 1000;
 
 const DEFAULT_USER_PROFILE: UserProfile = {
   name: 'Admin',
@@ -692,9 +693,6 @@ const Header: React.FC<HeaderProps> = ({
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const hasSupabaseConfig = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
   const userInitials = useMemo(() => getInitials(userProfile.name), [userProfile.name]);
-  const alertsRefreshIntervalMs = notificationPreferences.weeklyDigest
-    ? 7 * 24 * 60 * 60 * 1000
-    : 60 * 1000;
 
   const unreadCount = useMemo(
     () =>
@@ -884,10 +882,10 @@ const Header: React.FC<HeaderProps> = ({
 
     const timer = setInterval(() => {
       loadAlerts();
-    }, alertsRefreshIntervalMs);
+    }, ALERTS_REFRESH_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, [loadAlerts, notificationPreferences.pushNotifications, alertsRefreshIntervalMs]);
+  }, [loadAlerts, notificationPreferences.pushNotifications]);
 
   useEffect(() => {
     if (!isNotificationsOpen) return;
@@ -1002,8 +1000,8 @@ const Header: React.FC<HeaderProps> = ({
           <button
             className="hidden md:inline-flex p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
             onClick={onToggleSidebarCollapse}
-            title={isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-            aria-label={isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+            title={isSidebarCollapsed ? t('sidebar.expand_sidebar') : t('sidebar.collapse_sidebar')}
+            aria-label={isSidebarCollapsed ? t('sidebar.expand_sidebar') : t('sidebar.collapse_sidebar')}
           >
             {isSidebarCollapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
           </button>

@@ -100,7 +100,7 @@ const Settings = () => {
 
   // State for Notifications
   const [notifications, setNotifications] = useState<NotificationPreferences>(
-    readStoredNotificationPreferences()
+    () => readStoredNotificationPreferences()
   );
 
   // State for Integrations
