@@ -177,7 +177,7 @@ begin
 
   insert into public.company_users (company_id, user_id, role, is_active)
   values (v_company_id, v_actor_user_id, 'admin_geral', true)
-  on conflict (company_id, user_id)
+  on conflict on constraint company_users_company_id_user_id_key
   do update set
     role = excluded.role,
     is_active = true,
