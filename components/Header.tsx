@@ -686,7 +686,7 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { can } = useAuthorization();
+  const { can, roleLabel } = useAuthorization();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -1346,7 +1346,7 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="hidden md:flex flex-col text-right">
               <span className="text-xs font-bold text-gray-700">{userProfile.name}</span>
-              <span className="text-[10px] text-gray-500">{userProfile.role}</span>
+              <span className="text-[10px] text-gray-500">{roleLabel}</span>
             </div>
             <ChevronDown size={14} className="hidden md:block text-gray-400" />
           </button>
