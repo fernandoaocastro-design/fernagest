@@ -45,6 +45,14 @@ import {
   saveLanguage
 } from '../utils/language';
 import { useI18n } from '../utils/i18n';
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  NOTIFICATION_PREFERENCES_STORAGE_KEY,
+  NOTIFICATION_PREFERENCES_UPDATED_EVENT,
+  NotificationPreferences,
+  readStoredNotificationPreferences,
+  saveNotificationPreferences
+} from '../utils/notificationPreferences';
 
 const HR_SETTINGS_KEY = 'fernagest:hr:settings:v1';
 const SETTINGS_TABS = ['general', 'users', 'system', 'notifications', 'security', 'integrations'] as const;
@@ -91,11 +99,9 @@ const Settings = () => {
   });
 
   // State for Notifications
-  const [notifications, setNotifications] = useState({
-      emailAlerts: true,
-      pushNotifications: false,
-      weeklyDigest: true
-  });
+  const [notifications, setNotifications] = useState<NotificationPreferences>(
+    readStoredNotificationPreferences()
+  );
 
   // State for Integrations
   const [integrations, setIntegrations] = useState([
@@ -253,6 +259,40 @@ const Settings = () => {
     setActiveTab(parseTabFromSearch(location.search));
   }, [location.search]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const refreshNotifications = () => {
+      setNotifications(readStoredNotificationPreferences());
+    };
+
+    const handleNotificationsStorage = (event: StorageEvent) => {
+      if (event.key !== NOTIFICATION_PREFERENCES_STORAGE_KEY) return;
+      refreshNotifications();
+    };
+
+    const handleNotificationsUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<NotificationPreferences>;
+      setNotifications(customEvent.detail || DEFAULT_NOTIFICATION_PREFERENCES);
+    };
+
+    refreshNotifications();
+
+    window.addEventListener('storage', handleNotificationsStorage);
+    window.addEventListener(
+      NOTIFICATION_PREFERENCES_UPDATED_EVENT,
+      handleNotificationsUpdated as EventListener
+    );
+
+    return () => {
+      window.removeEventListener('storage', handleNotificationsStorage);
+      window.removeEventListener(
+        NOTIFICATION_PREFERENCES_UPDATED_EVENT,
+        handleNotificationsUpdated as EventListener
+      );
+    };
+  }, []);
+
   // Handlers
   const handleSaveGeneral = () => {
     const normalizedCompanyName = companyName.trim() || COMPANY_DEFAULT_NAME;
@@ -358,7 +398,13 @@ const Settings = () => {
     }
   };
 
-  const toggleNotification = (key: keyof typeof notifications) => setNotifications({...notifications, [key]: !notifications[key]});
+  const toggleNotification = (key: keyof NotificationPreferences) => {
+    setNotifications((previous) => {
+      const next = { ...previous, [key]: !previous[key] };
+      saveNotificationPreferences(next);
+      return next;
+    });
+  };
   
   const toggleIntegration = (id: string) => setIntegrations(integrations.map(i => i.id === id ? {...i, connected: !i.connected} : i));
   
@@ -773,15 +819,42 @@ const Settings = () => {
                   <div className="space-y-4">
                      <div className="flex items-center justify-between p-4 border border-gray-100 rounded-lg">
                         <span className="text-sm font-medium text-gray-700">{t('settings.email_alerts')}</span>
-                        <div onClick={() => toggleNotification('emailAlerts')} className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${notifications.emailAlerts ? 'bg-blue-600' : 'bg-gray-300'}`}><div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${notifications.emailAlerts ? 'left-6' : 'left-1'}`}></div></div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-label={t('settings.email_alerts')}
+                          aria-checked={notifications.emailAlerts}
+                          onClick={() => toggleNotification('emailAlerts')}
+                          className={`w-10 h-5 rounded-full relative transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${notifications.emailAlerts ? 'bg-blue-600' : 'bg-gray-300'}`}
+                        >
+                          <span className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${notifications.emailAlerts ? 'left-6' : 'left-1'}`}></span>
+                        </button>
                      </div>
                      <div className="flex items-center justify-between p-4 border border-gray-100 rounded-lg">
                         <span className="text-sm font-medium text-gray-700">{t('settings.push_notifications')}</span>
-                        <div onClick={() => toggleNotification('pushNotifications')} className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${notifications.pushNotifications ? 'bg-blue-600' : 'bg-gray-300'}`}><div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${notifications.pushNotifications ? 'left-6' : 'left-1'}`}></div></div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-label={t('settings.push_notifications')}
+                          aria-checked={notifications.pushNotifications}
+                          onClick={() => toggleNotification('pushNotifications')}
+                          className={`w-10 h-5 rounded-full relative transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${notifications.pushNotifications ? 'bg-blue-600' : 'bg-gray-300'}`}
+                        >
+                          <span className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${notifications.pushNotifications ? 'left-6' : 'left-1'}`}></span>
+                        </button>
                      </div>
                      <div className="flex items-center justify-between p-4 border border-gray-100 rounded-lg">
                         <span className="text-sm font-medium text-gray-700">{t('settings.weekly_summary')}</span>
-                        <div onClick={() => toggleNotification('weeklyDigest')} className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${notifications.weeklyDigest ? 'bg-blue-600' : 'bg-gray-300'}`}><div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${notifications.weeklyDigest ? 'left-6' : 'left-1'}`}></div></div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-label={t('settings.weekly_summary')}
+                          aria-checked={notifications.weeklyDigest}
+                          onClick={() => toggleNotification('weeklyDigest')}
+                          className={`w-10 h-5 rounded-full relative transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${notifications.weeklyDigest ? 'bg-blue-600' : 'bg-gray-300'}`}
+                        >
+                          <span className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${notifications.weeklyDigest ? 'left-6' : 'left-1'}`}></span>
+                        </button>
                      </div>
                   </div>
                </div>

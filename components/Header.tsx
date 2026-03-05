@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -29,6 +29,13 @@ import { formatDate, formatTime, readStoredLanguage } from '../utils/language';
 import { useI18n } from '../utils/i18n';
 import { USER_PROFILE_UPDATED_EVENT } from '../utils/permissions';
 import { useAuthorization } from '../utils/useAuthorization';
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  NOTIFICATION_PREFERENCES_STORAGE_KEY,
+  NOTIFICATION_PREFERENCES_UPDATED_EVENT,
+  NotificationPreferences,
+  readStoredNotificationPreferences
+} from '../utils/notificationPreferences';
 
 interface HeaderProps {
   toggleSidebar?: () => void;
@@ -675,6 +682,9 @@ const Header: React.FC<HeaderProps> = ({
   const [hasPartialError, setHasPartialError] = useState(false);
   const [seenAlerts, setSeenAlerts] = useState<Set<string>>(() => readSeenNotifications());
   const [userProfile, setUserProfile] = useState<UserProfile>(() => readUserProfile());
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(
+    () => readStoredNotificationPreferences()
+  );
   const [companyName, setCompanyName] = useState(COMPANY_DEFAULT_NAME);
   const [companyLogo, setCompanyLogo] = useState('');
   const notificationsRef = useRef<HTMLDivElement | null>(null);
@@ -682,13 +692,19 @@ const Header: React.FC<HeaderProps> = ({
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const hasSupabaseConfig = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
   const userInitials = useMemo(() => getInitials(userProfile.name), [userProfile.name]);
+  const alertsRefreshIntervalMs = notificationPreferences.weeklyDigest
+    ? 7 * 24 * 60 * 60 * 1000
+    : 60 * 1000;
 
   const unreadCount = useMemo(
-    () => alerts.filter((alert) => !seenAlerts.has(alert.id)).length,
-    [alerts, seenAlerts]
+    () =>
+      notificationPreferences.pushNotifications
+        ? alerts.filter((alert) => !seenAlerts.has(alert.id)).length
+        : 0,
+    [alerts, seenAlerts, notificationPreferences.pushNotifications]
   );
 
-  const loadAlerts = async () => {
+  const loadAlerts = useCallback(async () => {
     setLoading(true);
     try {
       const [hr, inventory, finance, purchases] = await Promise.allSettled([
@@ -717,7 +733,7 @@ const Header: React.FC<HeaderProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [hasSupabaseConfig]);
 
   const handleOpenNotifications = () => {
     setIsNotificationsOpen((prev) => {
@@ -829,12 +845,49 @@ const Header: React.FC<HeaderProps> = ({
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const refreshNotificationPreferences = () => {
+      setNotificationPreferences(readStoredNotificationPreferences());
+    };
+
+    const handleNotificationPreferencesStorage = (event: StorageEvent) => {
+      if (event.key !== NOTIFICATION_PREFERENCES_STORAGE_KEY) return;
+      refreshNotificationPreferences();
+    };
+
+    const handleNotificationPreferencesUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<NotificationPreferences>;
+      setNotificationPreferences(customEvent.detail || DEFAULT_NOTIFICATION_PREFERENCES);
+    };
+
+    refreshNotificationPreferences();
+
+    window.addEventListener('storage', handleNotificationPreferencesStorage);
+    window.addEventListener(
+      NOTIFICATION_PREFERENCES_UPDATED_EVENT,
+      handleNotificationPreferencesUpdated as EventListener
+    );
+
+    return () => {
+      window.removeEventListener('storage', handleNotificationPreferencesStorage);
+      window.removeEventListener(
+        NOTIFICATION_PREFERENCES_UPDATED_EVENT,
+        handleNotificationPreferencesUpdated as EventListener
+      );
+    };
+  }, []);
+
+  useEffect(() => {
     loadAlerts();
+    if (!notificationPreferences.pushNotifications) return;
+
     const timer = setInterval(() => {
       loadAlerts();
-    }, 60000);
+    }, alertsRefreshIntervalMs);
+
     return () => clearInterval(timer);
-  }, []);
+  }, [loadAlerts, notificationPreferences.pushNotifications, alertsRefreshIntervalMs]);
 
   useEffect(() => {
     if (!isNotificationsOpen) return;
@@ -1010,7 +1063,7 @@ const Header: React.FC<HeaderProps> = ({
             aria-label={t('header.notifications')}
           >
             <Bell size={20} />
-            {unreadCount > 0 && (
+            {notificationPreferences.pushNotifications && unreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-white flex items-center justify-center">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
