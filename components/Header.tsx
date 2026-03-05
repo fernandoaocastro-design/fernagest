@@ -931,7 +931,10 @@ const Header: React.FC<HeaderProps> = ({
 
       if (dueForDigest && nextState.weeklyDigestPendingAlertIds.length > 0) {
         notifyInfo(
-          `Simulacao: resumo semanal enviado para ${userProfile.email} com ${nextState.weeklyDigestPendingAlertIds.length} alerta(s).`
+          t('header.email_weekly_digest_sent', {
+            email: userProfile.email,
+            count: nextState.weeklyDigestPendingAlertIds.length
+          })
         );
         nextState.weeklyDigestPendingAlertIds.forEach((id) => deliveredSet.add(id));
         nextState.immediateSentAlertIds = Array.from(deliveredSet);
@@ -954,7 +957,10 @@ const Header: React.FC<HeaderProps> = ({
 
     if (batchIds.size > 0) {
       notifyInfo(
-        `Simulacao: e-mail de alertas enviado para ${userProfile.email} (${batchIds.size} alerta(s)).`
+        t('header.email_alert_sent', {
+          email: userProfile.email,
+          count: batchIds.size
+        })
       );
       batchIds.forEach((id) => deliveredSet.add(id));
       nextState.immediateSentAlertIds = Array.from(deliveredSet);

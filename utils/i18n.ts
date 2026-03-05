@@ -38,6 +38,14 @@ const TRANSLATIONS: Record<string, TranslationEntry> = {
   'header.search_placeholder': { 'pt-AO': 'Buscar...', 'en-US': 'Search...' },
   'header.notifications': { 'pt-AO': 'Notificações', 'en-US': 'Notifications' },
   'header.refresh_alerts': { 'pt-AO': 'Atualizar alertas', 'en-US': 'Refresh alerts' },
+  'header.email_alert_sent': {
+    'pt-AO': 'Simulação: e-mail de alertas enviado para {email} ({count} alerta(s)).',
+    'en-US': 'Simulation: alert email sent to {email} ({count} alert(s)).'
+  },
+  'header.email_weekly_digest_sent': {
+    'pt-AO': 'Simulação: resumo semanal enviado para {email} com {count} alerta(s).',
+    'en-US': 'Simulation: weekly digest sent to {email} with {count} alert(s).'
+  },
   'header.partial_error': {
     'pt-AO': 'Parte dos alertas não pôde ser atualizada. Exibindo dados disponíveis.',
     'en-US': 'Some alerts could not be updated. Showing available data.'
@@ -458,7 +466,7 @@ const TRANSLATIONS: Record<string, TranslationEntry> = {
   'sales.day_wed': { 'pt-AO': 'Qua', 'en-US': 'Wed' },
   'sales.day_thu': { 'pt-AO': 'Qui', 'en-US': 'Thu' },
   'sales.day_fri': { 'pt-AO': 'Sex', 'en-US': 'Fri' },
-  'sales.day_sat': { 'pt-AO': 'S�b', 'en-US': 'Sat' },
+  'sales.day_sat': { 'pt-AO': 'Sáb', 'en-US': 'Sat' },
   'sales.day_sun': { 'pt-AO': 'Dom', 'en-US': 'Sun' },
   'sales.tooltip_sales': { 'pt-AO': 'Vendas', 'en-US': 'Sales' },
   'sales.top_products': { 'pt-AO': 'Produtos Mais Vendidos', 'en-US': 'Top Selling Products' },
